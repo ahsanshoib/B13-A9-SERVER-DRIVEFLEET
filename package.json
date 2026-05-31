@@ -1,0 +1,22 @@
+{
+  "name": "drivefleet-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-auth": "^1.6.12",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^6.21.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
