@@ -35,17 +35,16 @@ app.use(express.json());
 app.use(cookieParser());
 
 const client = new MongoClient(process.env.MONGODB_URI);
-let db;
-let auth;
+let db = null;
+let auth = null;
+let initialized = false;
 
-async function connectDB() {
+async function initialize() {
+  if (initialized) return;
+  initialized = true;
   await client.connect();
   db = client.db("FLEETDRIVE");
   console.log("MongoDB connected");
-  initAuth();
-}
-
-function initAuth() {
   auth = betterAuth({
     database: mongodbAdapter(db),
     secret: process.env.BETTER_AUTH_SECRET,
@@ -70,7 +69,16 @@ function initAuth() {
   });
 }
 
-connectDB();
+// Middleware to ensure DB is ready
+app.use(async (req, res, next) => {
+  try {
+    await initialize();
+    next();
+  } catch (err) {
+    console.error("Init error:", err);
+    res.status(500).json({ message: "Server initialization failed" });
+  }
+});
 
 // ─── JWT ROUTES ─────────────────────────────────────────────
 
