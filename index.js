@@ -1,11 +1,11 @@
-import "dotenv/config";
-import express from "express";
-import cookieParser from "cookie-parser";
-import jwt from "jsonwebtoken";
-import { MongoClient, ObjectId } from "mongodb";
-import { betterAuth } from "better-auth";
-import { jwt as jwtPlugin } from "better-auth/plugins";
-import { mongodbAdapter } from "better-auth/adapters/mongodb";
+require("dotenv").config();
+const express = require("express");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { MongoClient, ObjectId } = require("mongodb");
+const { betterAuth } = require("better-auth");
+const { jwt: jwtPlugin } = require("better-auth/plugins");
+const { mongodbAdapter } = require("better-auth/adapters/mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,11 +37,9 @@ app.use(cookieParser());
 const client = new MongoClient(process.env.MONGODB_URI);
 let db = null;
 let auth = null;
-let initialized = false;
 
 async function initialize() {
-  if (initialized) return;
-  initialized = true;
+  if (db && auth) return;
   await client.connect();
   db = client.db("FLEETDRIVE");
   console.log("MongoDB connected");
@@ -69,7 +67,6 @@ async function initialize() {
   });
 }
 
-// Middleware to ensure DB is ready
 app.use(async (req, res, next) => {
   try {
     await initialize();
@@ -335,8 +332,6 @@ app.delete("/api/bookings/:id", verifySession, async (req, res) => {
 
 app.get("/", (req, res) => res.send("DriveFleet API running"));
 
-if (!isProduction) {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-export default app;
+module.exports = app;
