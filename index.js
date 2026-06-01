@@ -1,12 +1,11 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
-const { MongoClient, ObjectId } = require("mongodb");
-const { betterAuth } = require("better-auth");
-const { jwt: jwtPlugin } = require("better-auth/plugins");
-const { mongodbAdapter } = require("better-auth/adapters/mongodb");
+import "dotenv/config";
+import express from "express";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { MongoClient, ObjectId } from "mongodb";
+import { betterAuth } from "better-auth";
+import { jwt as jwtPlugin } from "better-auth/plugins";
+import { mongodbAdapter } from "better-auth/adapters/mongodb";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -332,4 +331,4 @@ if (!isProduction) {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-module.exports = app;
+export default app;
