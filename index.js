@@ -10,6 +10,8 @@ const { mongodbAdapter } = require("better-auth/adapters/mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === "production";
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 const allowedOrigins = [
   "http://localhost:3000",
@@ -18,32 +20,20 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-}));
-app.use(express.json());
-app.use(cookieParser());
-
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
   }
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,Cookie");
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,Cookie,Set-Cookie");
+  if (req.method === "OPTIONS") return res.status(200).end();
   next();
 });
+
+app.use(express.json());
+app.use(cookieParser());
 
 const client = new MongoClient(process.env.MONGODB_URI);
 let db;
@@ -56,15 +46,11 @@ async function connectDB() {
   initAuth();
 }
 
-const isProduction = process.env.NODE_ENV === "production";
-
 function initAuth() {
   auth = betterAuth({
     database: mongodbAdapter(db),
     secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: isProduction
-      ? "https://b13-a9-server-drivefleet.vercel.app"
-      : "http://localhost:5000",
+    baseURL: BASE_URL,
     emailAndPassword: { enabled: true },
     plugins: [jwtPlugin()],
     trustedOrigins: allowedOrigins,
@@ -92,20 +78,13 @@ connectDB();
 app.post("/api/jwt/token", (req, res) => {
   const { email, name, photo } = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
-
-  const token = jwt.sign(
-    { email, name, photo },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
+  const token = jwt.sign({ email, name, photo }, process.env.JWT_SECRET, { expiresIn: "7d" });
   res.cookie("token", token, {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
-
   res.json({ success: true });
 });
 
@@ -122,84 +101,74 @@ app.post("/api/jwt/logout", (req, res) => {
 
 app.all("/api/auth/*", async (req, res) => {
   try {
-    const baseUrl = isProduction
-      ? "https://b13-a9-server-drivefleet.vercel.app"
-      : `http://localhost:${PORT}`;
-    const url = new URL(req.url, baseUrl);
+    const url = new URL(req.url, BASE_URL);
+    const headers = new Headers();
+    Object.entries(req.headers).forEach(([key, value]) => {
+      if (value) headers.set(key, Array.isArray(value) ? value.join(",") : value);
+    });
     const request = new Request(url.toString(), {
       method: req.method,
-      headers: req.headers,
+      headers,
       body: req.method !== "GET" && req.method !== "HEAD"
         ? JSON.stringify(req.body)
         : undefined,
     });
     const response = await auth.handler(request);
     response.headers.forEach((value, key) => {
-      res.setHeader(key, value);
+      if (key.toLowerCase() !== "access-control-allow-origin") {
+        res.setHeader(key, value);
+      }
     });
     res.status(response.status);
     const text = await response.text();
     res.send(text);
   } catch (err) {
-    console.error(err);
+    console.error("Auth handler error:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 // ─── SESSION MIDDLEWARE ─────────────────────────────────────
 
-async function verifySession(req, res, next) {
+async function getSession(req) {
   try {
-    const baseUrl = isProduction
-      ? "https://b13-a9-server-drivefleet.vercel.app"
-      : `http://localhost:${PORT}`;
-    const url = new URL("/api/auth/get-session", baseUrl);
-    const request = new Request(url.toString(), {
-      method: "GET",
-      headers: req.headers,
+    const url = new URL("/api/auth/get-session", BASE_URL);
+    const headers = new Headers();
+    Object.entries(req.headers).forEach(([key, value]) => {
+      if (value) headers.set(key, Array.isArray(value) ? value.join(",") : value);
     });
+    const request = new Request(url.toString(), { method: "GET", headers });
     const response = await auth.handler(request);
-    const data = await response.json();
-    if (data?.user) {
-      req.user = data.user;
-      next();
-    } else {
-      res.status(401).json({ message: "Unauthorized" });
-    }
-  } catch {
-    res.status(401).json({ message: "Unauthorized" });
-  }
-}
-
-// ─── CARS ROUTES ───────────────────────────────────────────
-
-async function getLoggedInEmail(req) {
-  try {
-    const baseUrl = isProduction
-      ? "https://b13-a9-server-drivefleet.vercel.app"
-      : `http://localhost:${PORT}`;
-    const url = new URL("/api/auth/get-session", baseUrl);
-    const request = new Request(url.toString(), {
-      method: "GET",
-      headers: req.headers,
-    });
-    const response = await auth.handler(request);
-    const data = await response.json();
-    return data?.user?.email || null;
+    return await response.json();
   } catch {
     return null;
   }
 }
 
+async function verifySession(req, res, next) {
+  const data = await getSession(req);
+  if (data?.user) {
+    req.user = data.user;
+    next();
+  } else {
+    res.status(401).json({ message: "Unauthorized" });
+  }
+}
+
+async function getLoggedInEmail(req) {
+  const data = await getSession(req);
+  return data?.user?.email || null;
+}
+
+// ─── CARS ROUTES ───────────────────────────────────────────
+
 app.get("/api/cars", async (req, res) => {
   try {
     const { search, type } = req.query;
     const loggedInEmail = await getLoggedInEmail(req);
-
     const query = {};
     if (search) query.name = { $regex: search, $options: "i" };
     if (type && type !== "All") query.type = { $regex: `^${type}$`, $options: "i" };
-
     if (loggedInEmail) {
       query.$or = [
         { isUserAdded: { $ne: true } },
@@ -208,7 +177,6 @@ app.get("/api/cars", async (req, res) => {
     } else {
       query.isUserAdded = { $ne: true };
     }
-
     const cars = await db.collection("cars").find(query).toArray();
     res.json(cars);
   } catch (err) {
@@ -219,7 +187,6 @@ app.get("/api/cars", async (req, res) => {
 app.get("/api/cars/featured", async (req, res) => {
   try {
     const loggedInEmail = await getLoggedInEmail(req);
-
     const query = {};
     if (loggedInEmail) {
       query.$or = [
@@ -229,7 +196,6 @@ app.get("/api/cars/featured", async (req, res) => {
     } else {
       query.isUserAdded = { $ne: true };
     }
-
     const cars = await db.collection("cars").find(query).limit(6).toArray();
     res.json(cars);
   } catch (err) {
@@ -362,7 +328,7 @@ app.delete("/api/bookings/:id", verifySession, async (req, res) => {
 
 app.get("/", (req, res) => res.send("DriveFleet API running"));
 
-if (process.env.NODE_ENV !== "production") {
+if (!isProduction) {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
