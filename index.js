@@ -77,6 +77,7 @@ app.use(async (req, res, next) => {
   }
 });
 
+
 // ─── JWT ROUTES ─────────────────────────────────────────────
 
 app.post("/api/jwt/token", (req, res) => {
@@ -100,6 +101,7 @@ app.post("/api/jwt/logout", (req, res) => {
   });
   res.json({ success: true });
 });
+
 
 // ─── BETTER AUTH HANDLER ────────────────────────────────────
 
@@ -132,6 +134,7 @@ app.all("/api/auth/*", async (req, res) => {
   }
 });
 
+
 // ─── SESSION MIDDLEWARE ─────────────────────────────────────
 
 async function getSession(req) {
@@ -163,6 +166,7 @@ async function getLoggedInEmail(req) {
   const data = await getSession(req);
   return data?.user?.email || null;
 }
+
 
 // ─── CARS ROUTES ───────────────────────────────────────────
 
@@ -270,6 +274,7 @@ app.get("/api/my-cars", verifySession, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 // ─── BOOKINGS ───────────────────────────────────────────────
 
