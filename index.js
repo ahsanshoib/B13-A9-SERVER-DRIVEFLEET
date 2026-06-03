@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const { MongoClient, ObjectId } = require("mongodb");
@@ -18,6 +19,19 @@ const allowedOrigins = [
   "https://b13-a9-client-drivefleet-54mm.vercel.app",
   process.env.CLIENT_URL,
 ].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Set-Cookie"],
+}));
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -77,7 +91,6 @@ app.use(async (req, res, next) => {
   }
 });
 
-
 // ─── JWT ROUTES ─────────────────────────────────────────────
 
 app.post("/api/jwt/token", (req, res) => {
@@ -86,8 +99,8 @@ app.post("/api/jwt/token", (req, res) => {
   const token = jwt.sign({ email, name, photo }, process.env.JWT_SECRET, { expiresIn: "7d" });
   res.cookie("token", token, {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
   res.json({ success: true });
@@ -96,12 +109,11 @@ app.post("/api/jwt/token", (req, res) => {
 app.post("/api/jwt/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    secure: true,
+    sameSite: "none",
   });
   res.json({ success: true });
 });
-
 
 // ─── BETTER AUTH HANDLER ────────────────────────────────────
 
@@ -134,7 +146,6 @@ app.all("/api/auth/*", async (req, res) => {
   }
 });
 
-
 // ─── SESSION MIDDLEWARE ─────────────────────────────────────
 
 async function getSession(req) {
@@ -166,7 +177,6 @@ async function getLoggedInEmail(req) {
   const data = await getSession(req);
   return data?.user?.email || null;
 }
-
 
 // ─── CARS ROUTES ───────────────────────────────────────────
 
@@ -274,7 +284,6 @@ app.get("/api/my-cars", verifySession, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
 
 // ─── BOOKINGS ───────────────────────────────────────────────
 
