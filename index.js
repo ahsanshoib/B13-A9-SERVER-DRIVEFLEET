@@ -10,11 +10,11 @@ const { mongodbAdapter } = require("better-auth/adapters/mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const isProduction = process.env.NODE_ENV === "production";
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:5173",
   "https://b13-a9-client-drivefleet.vercel.app",
   "https://b13-a9-client-drivefleet-54mm.vercel.app",
   process.env.CLIENT_URL,
@@ -32,18 +32,6 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Set-Cookie"],
 }));
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  }
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,Cookie,Set-Cookie");
-  if (req.method === "OPTIONS") return res.status(200).end();
-  next();
-});
 
 app.use(express.json());
 app.use(cookieParser());
@@ -73,8 +61,8 @@ async function initialize() {
     advanced: {
       cookiePrefix: "drivefleet",
       defaultCookieAttributes: {
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
+        secure: true,
+        sameSite: "none",
         httpOnly: true,
       },
     },
