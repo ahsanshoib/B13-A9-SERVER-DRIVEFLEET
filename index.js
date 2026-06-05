@@ -45,29 +45,34 @@ async function initialize() {
   await client.connect();
   db = client.db("FLEETDRIVE");
   console.log("MongoDB connected");
-  auth = betterAuth({
-    database: mongodbAdapter(db),
-    secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: BASE_URL,
-    emailAndPassword: { enabled: true },
-    plugins: [jwtPlugin()],
-    trustedOrigins: allowedOrigins,
-    socialProviders: {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        redirectURI: `${BASE_URL}/api/auth/callback/google`,
-      },
+
+
+ auth = betterAuth({
+  database: mongodbAdapter(db),
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: BASE_URL,
+  emailAndPassword: { enabled: true },
+  plugins: [jwtPlugin()],
+  trustedOrigins: allowedOrigins,
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     },
-    advanced: {
-      cookiePrefix: "drivefleet",
-      defaultCookieAttributes: {
-        secure: true,
-        sameSite: "none",
-        httpOnly: true,
-      },
+  },
+  advanced: {
+    cookiePrefix: "drivefleet",
+    crossSubdomainCookies: {
+      enabled: false,
     },
-  });
+    defaultCookieAttributes: {
+      secure: true,
+      sameSite: "none",
+      httpOnly: true,
+      partitioned: true,
+    },
+  },
+});
 }
 
 app.use(async (req, res, next) => {
