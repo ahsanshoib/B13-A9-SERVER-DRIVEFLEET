@@ -151,14 +151,29 @@ async function getSession(req) {
   }
 }
 
+// ─── JWT MIDDLEWARE ─────────────────────────────────────────
+
 async function verifySession(req, res, next) {
+  // Step 1: JWT cookie check
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+      return next();
+    } catch {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+  }
+
+
   const data = await getSession(req);
   if (data?.user) {
     req.user = data.user;
-    next();
-  } else {
-    res.status(401).json({ message: "Unauthorized" });
+    return next();
   }
+
+  res.status(401).json({ message: "Unauthorized" });
 }
 
 async function getLoggedInEmail(req) {
