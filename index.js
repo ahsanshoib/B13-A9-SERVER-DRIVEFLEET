@@ -7,6 +7,7 @@ const { MongoClient, ObjectId } = require("mongodb");
 const { betterAuth } = require("better-auth");
 const { jwt: jwtPlugin } = require("better-auth/plugins");
 const { mongodbAdapter } = require("better-auth/adapters/mongodb");
+const isProduction = process.env.NODE_ENV === "production";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -55,10 +56,12 @@ async function initialize() {
   plugins: [jwtPlugin()],
   trustedOrigins: allowedOrigins,
   rateLimit: { enabled: false },
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirectURI: `${BASE_URL}/api/auth/callback/google`,
     },
   },
   advanced: {
