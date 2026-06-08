@@ -54,6 +54,7 @@ async function initialize() {
   emailAndPassword: { enabled: true },
   plugins: [jwtPlugin()],
   trustedOrigins: allowedOrigins,
+  rateLimit: { enabled: false },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
