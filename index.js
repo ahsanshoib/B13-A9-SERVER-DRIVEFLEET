@@ -61,7 +61,6 @@ async function initialize() {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      redirectURI: `${BASE_URL}/api/auth/callback/google`,
     },
   },
   advanced: {
