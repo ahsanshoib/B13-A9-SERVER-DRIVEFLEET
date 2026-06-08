@@ -151,7 +151,6 @@ async function getSession(req) {
   }
 }
 
-
 async function getLoggedInEmail(req) {
   const data = await getSession(req);
   return data?.user?.email || null;
@@ -160,7 +159,6 @@ async function getLoggedInEmail(req) {
 // ─── JWT MIDDLEWARE ─────────────────────────────────────────
 
 async function verifySession(req, res, next) {
-  // Step 1: JWT cookie check
   const token = req.cookies?.token;
   if (token) {
     try {
@@ -172,7 +170,6 @@ async function verifySession(req, res, next) {
     }
   }
 
-  // Step 2: Fallback to Better Auth session
   const data = await getSession(req);
   if (data?.user) {
     req.user = data.user;
@@ -181,6 +178,27 @@ async function verifySession(req, res, next) {
 
   res.status(401).json({ message: "Unauthorized" });
 }
+
+// ─── USER ME ROUTE ──────────────────────────────────────────
+
+app.get("/api/user/me", async (req, res) => {
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return res.json({ user: decoded });
+    } catch {
+      
+    }
+  }
+
+  const data = await getSession(req);
+  if (data?.user) {
+    return res.json({ user: data.user });
+  }
+
+  res.status(401).json({ message: "Unauthorized" });
+});
 
 // ─── CARS ROUTES ───────────────────────────────────────────
 
