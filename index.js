@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken").verify;
 const { MongoClient, ObjectId } = require("mongodb");
 const { betterAuth } = require("better-auth");
 const { jwt: jwtPlugin } = require("better-auth/plugins");
@@ -90,6 +90,7 @@ app.use(async (req, res, next) => {
 
 // ─── JWT ROUTES ─────────────────────────────────────────────
 
+
 app.post("/api/jwt/token", (req, res) => {
   const { email, name, photo } = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
@@ -111,6 +112,17 @@ app.post("/api/jwt/logout", (req, res) => {
   });
   res.json({ success: true });
 });
+
+app.get("/api/user/me", (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ message: "Unauthorized" });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ user: decoded });
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
+  }
+});git 
 
 // ─── BETTER AUTH HANDLER ────────────────────────────────────
 
