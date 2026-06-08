@@ -2,12 +2,11 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken").verify;
+const jwt = require("jsonwebtoken");
 const { MongoClient, ObjectId } = require("mongodb");
 const { betterAuth } = require("better-auth");
 const { jwt: jwtPlugin } = require("better-auth/plugins");
 const { mongodbAdapter } = require("better-auth/adapters/mongodb");
-const isProduction = process.env.NODE_ENV === "production";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,36 +45,28 @@ async function initialize() {
   await client.connect();
   db = client.db("FLEETDRIVE");
   console.log("MongoDB connected");
-
-
- auth = betterAuth({
-  database: mongodbAdapter(db),
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: BASE_URL,
-  emailAndPassword: { enabled: true },
-  plugins: [jwtPlugin()],
-  trustedOrigins: allowedOrigins,
-  rateLimit: { enabled: false },
-
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  auth = betterAuth({
+    database: mongodbAdapter(db),
+    secret: process.env.BETTER_AUTH_SECRET,
+    baseURL: BASE_URL,
+    emailAndPassword: { enabled: true },
+    plugins: [jwtPlugin()],
+    trustedOrigins: allowedOrigins,
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      },
     },
-  },
-  advanced: {
-    cookiePrefix: "drivefleet",
-    crossSubdomainCookies: {
-      enabled: false,
+    advanced: {
+      cookiePrefix: "drivefleet",
+      defaultCookieAttributes: {
+        secure: true,
+        sameSite: "none",
+        httpOnly: true,
+      },
     },
-    defaultCookieAttributes: {
-      secure: true,
-      sameSite: "none",
-      httpOnly: true,
-      partitioned: true,
-    },
-  },
-});
+  });
 }
 
 app.use(async (req, res, next) => {
@@ -89,7 +80,6 @@ app.use(async (req, res, next) => {
 });
 
 // ─── JWT ROUTES ─────────────────────────────────────────────
-
 
 app.post("/api/jwt/token", (req, res) => {
   const { email, name, photo } = req.body;
@@ -112,17 +102,6 @@ app.post("/api/jwt/logout", (req, res) => {
   });
   res.json({ success: true });
 });
-
-app.get("/api/user/me", (req, res) => {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.json({ user: decoded });
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
-  }
-});git 
 
 // ─── BETTER AUTH HANDLER ────────────────────────────────────
 
@@ -172,6 +151,12 @@ async function getSession(req) {
   }
 }
 
+
+async function getLoggedInEmail(req) {
+  const data = await getSession(req);
+  return data?.user?.email || null;
+}
+
 // ─── JWT MIDDLEWARE ─────────────────────────────────────────
 
 async function verifySession(req, res, next) {
@@ -187,7 +172,7 @@ async function verifySession(req, res, next) {
     }
   }
 
-
+  // Step 2: Fallback to Better Auth session
   const data = await getSession(req);
   if (data?.user) {
     req.user = data.user;
@@ -195,11 +180,6 @@ async function verifySession(req, res, next) {
   }
 
   res.status(401).json({ message: "Unauthorized" });
-}
-
-async function getLoggedInEmail(req) {
-  const data = await getSession(req);
-  return data?.user?.email || null;
 }
 
 // ─── CARS ROUTES ───────────────────────────────────────────
