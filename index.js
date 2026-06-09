@@ -152,6 +152,14 @@ async function getSession(req) {
 }
 
 async function getLoggedInEmail(req) {
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded.email || null;
+    } catch {
+    }
+  }
   const data = await getSession(req);
   return data?.user?.email || null;
 }
