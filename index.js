@@ -370,6 +370,20 @@ app.get("/api/bookings", verifySession, async (req, res) => {
   }
 });
 
+app.put("/api/user/update", verifySession, async (req, res) => {
+  try {
+    const { name, image } = req.body;
+    const email = req.user.email;
+    await db.collection("users").updateOne(
+      { email },
+      { $set: { name, image } }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.delete("/api/bookings/:id", verifySession, async (req, res) => {
   try {
     const booking = await db.collection("bookings").findOne({ _id: new ObjectId(req.params.id) });
