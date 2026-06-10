@@ -207,7 +207,7 @@ app.get("/api/user/me", async (req, res) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      const userDoc = await db.collection("users").findOne({ email: decoded.email });
+      const userDoc = await db.collection("user").findOne({ email: decoded.email });
       console.log("userDoc:",JSON.stringify(userDoc));
 
       const collections = await db.listCollections().toArray();
@@ -314,7 +314,8 @@ app.put("/api/user/update", verifySession, async (req, res) => {
   try {
     const { name, image } = req.body;
     const email = req.user.email;
-    await db.collection("users").updateOne(
+
+    await db.collection("user").updateOne(
       { email },
       { $set: { name, image } }
     );
