@@ -59,10 +59,12 @@ async function initialize() {
       "https://accounts.google.com",
       process.env.CLIENT_URL,
     ].filter(Boolean),
+
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectURI: "https://b13-a9-server-drivefleet.onrender.com/api/auth/callback/google",
       },
     },
     advanced: {
@@ -72,6 +74,7 @@ async function initialize() {
         sameSite: "none",
         httpOnly: true,
       },
+      useSecureCookies : true,
     },
   });
 }
