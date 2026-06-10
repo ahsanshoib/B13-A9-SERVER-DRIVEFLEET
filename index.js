@@ -206,8 +206,13 @@ app.get("/api/user/me", async (req, res) => {
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
       const userDoc = await db.collection("users").findOne({ email: decoded.email });
       console.log("userDoc:",JSON.stringify(userDoc));
+
+      const collections = await db.listCollections().toArray();
+      console.log("collections:", collections.map(c => c.name));
+
       return res.json({
         user: {
           email: decoded.email,
