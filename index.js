@@ -94,9 +94,9 @@ app.use(async (req, res, next) => {
 // ─── JWT ROUTES ─────────────────────────────────────────────
 
 app.post("/api/jwt/token", (req, res) => {
-  const { email, name, photo } = req.body;
+  const { email, name} = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
-  const token = jwt.sign({ email, name, photo }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  const token = jwt.sign({ email, name}, process.env.JWT_SECRET, { expiresIn: "7d" });
   res.cookie("token", token, {
     httpOnly: true,
     secure: true,
