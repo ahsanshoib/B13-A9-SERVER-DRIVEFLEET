@@ -51,20 +51,32 @@ async function initialize() {
     baseURL: BASE_URL,
     emailAndPassword: { enabled: true },
     plugins: [jwtPlugin()],
-    trustedOrigins: allowedOrigins,
-    socialProviders: {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      },
-    },
+
+  trustedOrigins: [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://b13-a9-client-drivefleet.vercel.app",
+  "https://b13-a9-client-drivefleet-54mm.vercel.app",
+  "https://accounts.google.com",
+  process.env.CLIENT_URL,
+].filter(Boolean),
+socialProviders: {
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  },
+},
     advanced: {
       cookiePrefix: "drivefleet",
       defaultCookieAttributes: {
         secure: true,
         sameSite: "none",
         httpOnly: true,
+        domain:undefined,
       },
+      crossSubDomainCookies: {
+        enabled:false,
+      }
     },
   });
 }
