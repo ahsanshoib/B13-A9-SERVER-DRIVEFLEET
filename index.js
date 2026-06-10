@@ -51,32 +51,27 @@ async function initialize() {
     baseURL: BASE_URL,
     emailAndPassword: { enabled: true },
     plugins: [jwtPlugin()],
-
-  trustedOrigins: [
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "https://b13-a9-client-drivefleet.vercel.app",
-  "https://b13-a9-client-drivefleet-54mm.vercel.app",
-  "https://accounts.google.com",
-  process.env.CLIENT_URL,
-].filter(Boolean),
-socialProviders: {
-  google: {
-    clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  },
-},
+    trustedOrigins: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://b13-a9-client-drivefleet.vercel.app",
+      "https://b13-a9-client-drivefleet-54mm.vercel.app",
+      "https://accounts.google.com",
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      },
+    },
     advanced: {
       cookiePrefix: "drivefleet",
       defaultCookieAttributes: {
         secure: true,
         sameSite: "none",
         httpOnly: true,
-        domain:undefined,
       },
-      crossSubDomainCookies: {
-        enabled:false,
-      }
     },
   });
 }
@@ -94,9 +89,9 @@ app.use(async (req, res, next) => {
 // ─── JWT ROUTES ─────────────────────────────────────────────
 
 app.post("/api/jwt/token", (req, res) => {
-  const { email, name} = req.body;
+  const { email, name } = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
-  const token = jwt.sign({ email, name}, process.env.JWT_SECRET, { expiresIn: "7d" });
+  const token = jwt.sign({ email, name }, process.env.JWT_SECRET, { expiresIn: "7d" });
   res.cookie("token", token, {
     httpOnly: true,
     secure: true,
@@ -169,8 +164,7 @@ async function getLoggedInEmail(req) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       return decoded.email || null;
-    } catch {
-    }
+    } catch {}
   }
   const data = await getSession(req);
   return data?.user?.email || null;
@@ -189,30 +183,22 @@ async function verifySession(req, res, next) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   }
-
   const data = await getSession(req);
   if (data?.user) {
     req.user = data.user;
     return next();
   }
-
   res.status(401).json({ message: "Unauthorized" });
 }
 
-// ─── USER ME ROUTE ──────────────────────────────────────────
+// ─── USER ROUTES ────────────────────────────────────────────
 
 app.get("/api/user/me", async (req, res) => {
   const token = req.cookies?.token;
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
       const userDoc = await db.collection("user").findOne({ email: decoded.email });
-      console.log("userDoc:",JSON.stringify(userDoc));
-
-      const collections = await db.listCollections().toArray();
-      console.log("collections:", collections.map(c => c.name));
-
       return res.json({
         user: {
           email: decoded.email,
@@ -220,14 +206,11 @@ app.get("/api/user/me", async (req, res) => {
           image: userDoc?.image || "",
         }
       });
-    } catch {
-      // invalid token
-    }
+    } catch {}
   }
-
   const data = await getSession(req);
   if (data?.user) {
-    const userDoc = await db.collection("users").findOne({ email: data.user.email });
+    const userDoc = await db.collection("user").findOne({ email: data.user.email });
     return res.json({
       user: {
         email: data.user.email,
@@ -236,8 +219,29 @@ app.get("/api/user/me", async (req, res) => {
       }
     });
   }
-
   res.status(401).json({ message: "Unauthorized" });
+});
+
+app.put("/api/user/update", verifySession, async (req, res) => {
+  try {
+    const { name, image } = req.body;
+    const email = req.user.email;
+    await db.collection("user").updateOne(
+      { email },
+      { $set: { name, image } },
+      { upsert: true }
+    );
+    const token = jwt.sign({ email, name }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // ─── CARS ROUTES ───────────────────────────────────────────
@@ -310,23 +314,16 @@ app.post("/api/cars", verifySession, async (req, res) => {
   }
 });
 
-app.put("/api/user/update", verifySession, async (req, res) => {
+app.put("/api/cars/:id", verifySession, async (req, res) => {
   try {
-    const { name, image } = req.body;
-    const email = req.user.email;
-
-    await db.collection("user").updateOne(
-      { email },
-      { $set: { name, image } }
+    const car = await db.collection("cars").findOne({ _id: new ObjectId(req.params.id) });
+    if (!car) return res.status(404).json({ message: "Car not found" });
+    if (car.ownerEmail !== req.user.email) return res.status(403).json({ message: "Forbidden" });
+    const { name, type, price, description, image, location, status, seats } = req.body;
+    await db.collection("cars").updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { name, type, price, description, image, location, status, seats } }
     );
-    
-    const token = jwt.sign({ email, name }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -392,20 +389,6 @@ app.get("/api/bookings", verifySession, async (req, res) => {
       .sort({ bookedAt: -1 })
       .toArray();
     res.json(bookings);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-app.put("/api/user/update", verifySession, async (req, res) => {
-  try {
-    const { name, image } = req.body;
-    const email = req.user.email;
-    await db.collection("users").updateOne(
-      { email },
-      { $set: { name, image } }
-    );
-    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
