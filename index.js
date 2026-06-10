@@ -206,15 +206,29 @@ app.get("/api/user/me", async (req, res) => {
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      return res.json({ user: decoded });
+      const userDoc = await db.collection("users").findOne({ email: decoded.email });
+      return res.json({
+        user: {
+          email: decoded.email,
+          name: userDoc?.name || decoded.name,
+          image: userDoc?.image || "",
+        }
+      });
     } catch {
-      
+      // invalid token
     }
   }
 
   const data = await getSession(req);
   if (data?.user) {
-    return res.json({ user: data.user });
+    const userDoc = await db.collection("users").findOne({ email: data.user.email });
+    return res.json({
+      user: {
+        email: data.user.email,
+        name: userDoc?.name || data.user.name,
+        image: userDoc?.image || data.user.image || "",
+      }
+    });
   }
 
   res.status(401).json({ message: "Unauthorized" });
@@ -290,16 +304,22 @@ app.post("/api/cars", verifySession, async (req, res) => {
   }
 });
 
-app.put("/api/cars/:id", verifySession, async (req, res) => {
+app.put("/api/user/update", verifySession, async (req, res) => {
   try {
-    const car = await db.collection("cars").findOne({ _id: new ObjectId(req.params.id) });
-    if (!car) return res.status(404).json({ message: "Car not found" });
-    if (car.ownerEmail !== req.user.email) return res.status(403).json({ message: "Forbidden" });
-    const { name, type, price, description, image, location, status, seats } = req.body;
-    await db.collection("cars").updateOne(
-      { _id: new ObjectId(req.params.id) },
-      { $set: { name, type, price, description, image, location, status, seats } }
+    const { name, image } = req.body;
+    const email = req.user.email;
+    await db.collection("users").updateOne(
+      { email },
+      { $set: { name, image } }
     );
+    
+    const token = jwt.sign({ email, name }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
