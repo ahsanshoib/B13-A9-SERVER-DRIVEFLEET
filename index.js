@@ -207,6 +207,7 @@ app.get("/api/user/me", async (req, res) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userDoc = await db.collection("users").findOne({ email: decoded.email });
+      console.log("userDoc:",JSON.stringify(userDoc));
       return res.json({
         user: {
           email: decoded.email,
